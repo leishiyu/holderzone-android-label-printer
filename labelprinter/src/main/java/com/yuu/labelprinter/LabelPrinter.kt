@@ -27,16 +27,12 @@ import com.yuu.labelprinter.receiver.GpResponseReceiver
 import com.yuu.labelprinter.receiver.GpStatusReceiver
 import com.yuu.labelprinter.registry.GpRegistry
 import com.yuu.labelprinter.registry.GpUsbLabelRegistry
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
 
 /**
  * @author Created by leisiyu
@@ -268,11 +264,6 @@ class LabelPrinter(private val context: Context) {
                 context.registerReceiver(
                     gpStatusReceiver,
                     IntentFilter(GpCom.ACTION_DEVICE_REAL_STATUS)
-                )
-                // 注册票据打印机响应广播
-                context.registerReceiver(
-                    gpResponseReceiver,
-                    IntentFilter(GpCom.ACTION_RECEIPT_RESPONSE)
                 )
                 // 注册标签打印机响应广播
                 context.registerReceiver(

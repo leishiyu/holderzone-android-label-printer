@@ -8,11 +8,13 @@ import com.yuu.labelprinter.event.ConnectEvent
 import com.yuu.labelprinter.port.PortParamsHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -52,6 +54,7 @@ class GpUsbLabelRegistry(
             }
             val connectEventFlow = connectFlow.filter { isEndConnectEvent(it) }
                 .onEach {
+                    Log.d("LabelPrinter","GpLink接收连接事件：${it::class.simpleName}")
                     Log.d(
                         "GpUsbLabelRegistry",
                         "lebelPrint,开始执行过滤广播操作，当前线程，${Thread.currentThread().name}"
@@ -67,7 +70,12 @@ class GpUsbLabelRegistry(
             }.zip(connectEventFlow) { _, connectEvent ->
                 connectEvent
             }
+                .catch {
+                    Log.d("GpUsbLabelRegistry", "打开链接发生异常：${it.message}")
+                }
+                .retry(1000L)
                 .map { connectEvent ->
+                    Log.d("LabelPrinter","GpLink接收连接事件：${connectEvent::class.simpleName}")
                     mutex.withLock {
                         when (connectEvent) {
                             is ConnectEvent.StateValidPrinterEvent -> {

@@ -19,17 +19,6 @@ class UsbDevicesHelper(private val context: Context) {
 
     fun searchDevices(): List<String>{
         Log.i("deviceManager","labelPrint,执行到了searchUsbDevice")
-        //测试
-        val im = context.getSystemService(Context.INPUT_SERVICE) as InputManager?
-        val devices = im!!.inputDeviceIds
-        for (id in devices) {
-            val device = im.getInputDevice(id)
-            Log.i("deviceManager","当前USB设备："+ device?.name)
-            Log.i("deviceManager","当前USB PID："+device?.productId)
-            Log.i("deviceManager","当前USB设备UID："+device?.vendorId)
-        }
-        //测试 OVER
-
         val manager = context.getSystemService(Context.USB_SERVICE) as UsbManager
 
         val deviceHashMap = manager.deviceList

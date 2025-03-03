@@ -3,6 +3,7 @@ package com.yuu.labelprinter.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.gprinter.io.GpDevice
 import com.gprinter.service.GpPrintService
 import com.yuu.labelprinter.event.ConnectEvent
@@ -43,6 +44,7 @@ class GpConnectionReceiver(
                 connectFlow.value = ConnectEvent.StateConnectedEvent()
             }
             GpDevice.STATE_VALID_PRINTER -> {
+                Log.d("LabelPrinter","有效的打印机设备${printerId}")
                 portParamsHelper.setPortOpenState(printerId, true)
                 connectFlow.value = ConnectEvent.StateValidPrinterEvent()
             }
