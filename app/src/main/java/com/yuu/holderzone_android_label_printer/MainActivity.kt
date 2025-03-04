@@ -1,6 +1,7 @@
 package com.yuu.holderzone_android_label_printer
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -52,7 +53,11 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.fillMaxSize(),horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Row(horizontalArrangement = Arrangement.Center) {
                             Text("连接标签打印服务", modifier = Modifier.clickable{
-                                labelPrinter.connect()
+                                lifecycleScope.launch(Dispatchers.IO){
+                                    labelPrinter.connect()
+                                        .collectLatest {
+                                        }
+                                }
                             })
                             Spacer(modifier = Modifier.width(30.dp))
                             Text("注册usb打印设备", modifier = Modifier.clickable{
@@ -66,12 +71,9 @@ class MainActivity : ComponentActivity() {
                             Spacer(modifier = Modifier.width(30.dp))
                             Text("测试打印", modifier = Modifier.clickable{
                                 lifecycleScope.launch(Dispatchers.IO){
-                                    labelPrinter.connect()
-                                        .flatMapConcat { labelPrinter.registerUsb() }
-                                        .map {
-                                            labelPrinter.print(getLabelDocument())
-                                        }
+                                    flow { emit( labelPrinter.print(getLabelDocument())) }
                                         .collectLatest {
+
                                             LogUtils.d("打印结果：${it.msg}")
                                         }
                                 }

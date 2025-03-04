@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.util.Base64
-import android.util.Log
 import com.gprinter.command.EscCommand.ENABLE
 import com.gprinter.command.GpCom
 import com.gprinter.command.LabelCommand
@@ -19,20 +18,19 @@ import com.yuu.labelprinter.delegate.GpServiceDelegate
 import com.yuu.labelprinter.device.UsbDevicesHelper
 import com.yuu.labelprinter.event.ConnectEvent
 import com.yuu.labelprinter.event.ConnectEvent.StateNoneEvent
-import com.yuu.labelprinter.event.StatusEvent
 import com.yuu.labelprinter.log.PrinterLogger
 import com.yuu.labelprinter.port.PortParamsHelper
 import com.yuu.labelprinter.receiver.GpConnectionReceiver
-import com.yuu.labelprinter.receiver.GpResponseReceiver
-import com.yuu.labelprinter.receiver.GpStatusReceiver
 import com.yuu.labelprinter.registry.GpRegistry
 import com.yuu.labelprinter.registry.GpUsbLabelRegistry
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * @author Created by leisiyu
@@ -69,24 +67,9 @@ class LabelPrinter(private val context: Context) {
     private val gpConnectionReceiver = GpConnectionReceiver(connectFlow, portParamsHelper)
 
     /**
-     * 打印机状态响应式观察者
-     */
-    private val statusFlow = MutableStateFlow<StatusEvent>(StatusEvent.DefaultStatus)
-
-    /**
-     * 打印机状态Receiver
-     */
-    private val gpStatusReceiver = GpStatusReceiver(statusFlow)
-
-    /**
-     * 打印机响应Receiver
-     */
-    private val gpResponseReceiver = GpResponseReceiver()
-
-    /**
      * 打印机ServiceConnection
      */
-    private var gpPrinterConnection = GpConnection(portParamsHelper, gpServiceDelegate)
+    private var gpPrinterConnection = GpConnection(portParamsHelper, gpServiceDelegate,connectFlow)
 
     /**
      * USB设备辅助类
@@ -105,13 +88,26 @@ class LabelPrinter(private val context: Context) {
      * 同步初始化
      */
     fun connect(): Flow<Boolean> {
-        //注册usb连接广播
+        // 注册usb连接广播
         return registerReceiver()
             .flatMapConcat {
-                //绑定服务
+                // 绑定服务
                 bindService()
             }
-
+            .flatMapConcat { bindSuccess ->
+                printerLogger.d("服务连接状态：${bindSuccess}")
+                if (bindSuccess) {
+                    // 监听连接事件
+                    connectFlow
+                        .filter { it is ConnectEvent.StateConnectedEvent }
+                        .flatMapConcat {
+                            // 服务绑定成功后执行 registerUsb()
+                            registerUsb()
+                        }
+                } else {
+                    flowOf(false)
+                }
+            }
     }
 
     /**
@@ -124,11 +120,6 @@ class LabelPrinter(private val context: Context) {
      */
     fun print(document: Document, printTimes: Int = 1): LabelPrintResult {
         try {
-            printerLogger.d("tainan,执行了print方法")
-            printerLogger.d("labelPrint,执行了print方法")
-            //首先判断 是否已经注册了USB设备，若没有，则直接抛异常
-            // if (!connectSuccess) throw GpHelperException("没有找到标签打印机，请检查连接线后重启程序")
-            printerLogger.d("labelPrint,发现lable已经通过了连接")
             val label = LabelCommand()
             val xSize = if (document.page == Document.PAGE_40_30) 40 else 30
             val ySize = if (document.page == Document.PAGE_40_30) 30 else 20
@@ -260,16 +251,6 @@ class LabelPrinter(private val context: Context) {
                     gpConnectionReceiver,
                     IntentFilter(GpCom.ACTION_CONNECT_STATUS)
                 )
-                // 注册实时状态查询广播
-                context.registerReceiver(
-                    gpStatusReceiver,
-                    IntentFilter(GpCom.ACTION_DEVICE_REAL_STATUS)
-                )
-                // 注册标签打印机响应广播
-                context.registerReceiver(
-                    gpResponseReceiver,
-                    IntentFilter(GpCom.ACTION_LABEL_RESPONSE)
-                )
                 trySend(true)
                 awaitClose {
                     printerLogger.d("注册广播接收器完成")
@@ -286,10 +267,6 @@ class LabelPrinter(private val context: Context) {
     private fun unregisterReceiver() {
         // 解除注册连接状态查询广播
         context.unregisterReceiver(gpConnectionReceiver)
-        // 解除注册实时状态查询广播
-        context.unregisterReceiver(gpStatusReceiver)
-        // 解除注册标签打印机响应广播
-        context.unregisterReceiver(gpResponseReceiver)
     }
 
     /**
@@ -297,7 +274,7 @@ class LabelPrinter(private val context: Context) {
      */
     private fun bindService(): Flow<Boolean> {
         return flow {
-            gpPrinterConnection = GpConnection(portParamsHelper, gpServiceDelegate)
+            gpPrinterConnection = GpConnection(portParamsHelper, gpServiceDelegate,connectFlow)
             emit(gpPrinterConnection)
         }.flatMapConcat {
             callbackFlow {
@@ -326,6 +303,7 @@ class LabelPrinter(private val context: Context) {
         }.flatMapConcat {
             gpRegistry.register()
         }.flatMapConcat {
+            printerLogger.d("register:执行注册")
             callbackFlow {
                 trySend(it > 0)
                 awaitClose{
@@ -336,6 +314,4 @@ class LabelPrinter(private val context: Context) {
     }
 
     class LabelPrintResult(val succeed: Boolean, val msg: String)
-
-
 }

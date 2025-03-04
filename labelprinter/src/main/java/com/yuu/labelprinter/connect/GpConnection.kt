@@ -19,19 +19,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 class GpConnection(
     private val portParamsHelper: PortParamsHelper,
-    private val gpServiceDelegate: GpServiceDelegate
+    private val gpServiceDelegate: GpServiceDelegate,
+    private val connectFlow:MutableStateFlow<ConnectEvent>
 ) : ServiceConnection {
-
-    private var connectEmitter: MutableStateFlow<ConnectEvent>? = null
-
-    private var disconnectEmitter: MutableStateFlow<ConnectEvent>? = null
 
     override fun onServiceDisconnected(name: ComponentName?) {
         // aidl service 重置
         gpServiceDelegate.setGpService(null)
         portParamsHelper.setGpService(null)
-        // 发送“断开连接”事件
-        disconnectEmitter?.value = ConnectEvent.StateConnectingEvent()
+        connectFlow.value = ConnectEvent.StateNoneEvent()
     }
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder) {
@@ -44,15 +40,6 @@ class GpConnection(
         portParamsHelper.setGpService(gpService)
         // 加载端口参数，或初始化端口参数
         portParamsHelper.loadOrInitPortParams()
-        // 发送“已连接事件”
-        connectEmitter?.value = ConnectEvent.StateConnectingEvent()
-    }
-
-    fun setConnectEmitter(connectEmitter:MutableStateFlow<ConnectEvent>) {
-        this.connectEmitter = connectEmitter
-    }
-
-    fun setDisconnectEmitter(disconnectEmitter: MutableStateFlow<ConnectEvent>) {
-        this.disconnectEmitter = disconnectEmitter
+        connectFlow.value = ConnectEvent.StateConnectedEvent()
     }
 }
