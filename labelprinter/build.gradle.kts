@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.yuu.labelprinter"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         minSdk = 21
