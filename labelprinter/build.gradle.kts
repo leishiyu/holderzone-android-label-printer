@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.mavenPublish)
 }
 
 android {
@@ -52,3 +53,16 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
+afterEvaluate{
+    publishing{
+        publications {
+            create<MavenPublication>("release"){
+                group = "com.yuu.android.component"
+                artifactId = "LabelPrinter"
+                version = "0.0.1"
+                from(components["release"])
+            }
+        }
+    }
+}
+
